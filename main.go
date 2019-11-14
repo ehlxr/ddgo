@@ -16,13 +16,14 @@ import (
 )
 
 var (
+	AppName   string
 	Version   string
 	BuildTime string
 	GitCommit string
 	GoVersion string
 
 	versionTpl = `%s
-Name: ddgo
+Name: %s
 Version: %s
 BuildTime: %s
 GitCommit: %s
@@ -32,7 +33,7 @@ GoVersion: %s
 	bannerBase64 = "DQogX19fXyAgX19fXyAgICBfX18gIF9fX19fIA0KKCAgXyBcKCAgXyBcICAvIF9fKSggIF8gICkNCiApKF8pICkpKF8pICkoIChfLS4gKShfKSggDQooX19fXy8oX19fXy8gIFxfX18vKF9fX19fKQ0K"
 
 	opts struct {
-		Addr       string `short:"a" long:"addr" default:"0.0.0.0:10141" env:"ADDR" description:"Addr to listen on for HTTP server"`
+		Addr       string `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
 		WebHookUrl string `short:"u" long:"webhook-url" env:"URL" description:"Webhook url of dingding" required:"true"`
 		Version    bool   `short:"v" long:"version" description:"Show version info"`
 	}
@@ -49,7 +50,7 @@ func main() {
 	mux.HandleFunc("/", requestHandle)
 
 	server := &http.Server{
-		Addr:    ":4000",
+		Addr:    opts.Addr,
 		Handler: mux,
 	}
 
@@ -93,14 +94,19 @@ func initLog() {
 }
 
 func parseArg() {
-	if _, err := flags.NewParser(&opts, flags.Default).Parse(); err != nil {
+	parser := flags.NewParser(&opts, flags.Default)
+	if _, err := parser.Parse(); err != nil {
 		if opts.Version {
 			printVersion()
 			os.Exit(0)
 		}
+
 		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
 			os.Exit(0)
 		} else {
+			parser.Name = AppName
+			parser.WriteHelp(os.Stderr)
+
 			os.Exit(1)
 		}
 	}
@@ -161,5 +167,5 @@ func dingToInfo(msg string) []byte {
 // printVersion Print out version information
 func printVersion() {
 	banner, _ := base64.StdEncoding.DecodeString(bannerBase64)
-	fmt.Printf(versionTpl, banner, Version, BuildTime, GitCommit, GoVersion)
+	fmt.Printf(versionTpl, banner, AppName, Version, BuildTime, GitCommit, GoVersion)
 }

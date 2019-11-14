@@ -2,8 +2,7 @@ FROM ehlxr/alpine
 
 LABEL maintainer="ehlxr <ehlxr.me@gmail.com>"
 
-COPY ./dist/ddgo /usr/local/bin/
-COPY ./entrypoint.sh /entrypoint.sh
+COPY ./dist/ddgo_linux_amd64 /usr/local/bin/ddgo
 
 
-ENTRYPOINT ["sh", "/entrypoint.sh"]
+ENTRYPOINT ["/usr/local/bin/ddgo"]
