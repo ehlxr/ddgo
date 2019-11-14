@@ -2,13 +2,34 @@ package main
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"github.com/jessevdk/go-flags"
 	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
+	"os/signal"
 	log "unknwon.dev/clog/v2"
+)
+
+var (
+	Version   string
+	BuildTime string
+	GitCommit string
+	GoVersion string
+
+	versionTpl = `%s
+Name: ddgo
+Version: %s
+BuildTime: %s
+GitCommit: %s
+GoVersion: %s
+
+`
+	bannerBase64 = "DQogX19fXyAgX19fXyAgICBfX18gIF9fX19fIA0KKCAgXyBcKCAgXyBcICAvIF9fKSggIF8gICkNCiApKF8pICkpKF8pICkoIChfLS4gKShfKSggDQooX19fXy8oX19fXy8gIFxfX18vKF9fX19fKQ0K"
 )
 
 func init() {
@@ -31,8 +52,9 @@ func init() {
 }
 
 var opts struct {
-	Addr       string `short:"a" long:"addr" default:"0.0.0.0:10141" env:"ADDR" description:"Addr to listen on for http requests"`
+	Addr       string `short:"a" long:"addr" default:"0.0.0.0:10141" env:"ADDR" description:"Addr to listen on for HTTP server"`
 	WebHookUrl string `short:"u" long:"webhook-url" env:"URL" description:"Webhook url of dingding" required:"true"`
+	Version    bool   `short:"v" long:"version" description:"Show version info"`
 }
 
 func dingToInfo(msg string) []byte {
@@ -87,18 +109,53 @@ func send(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(info)
 }
 
+// printVersion Print out version information
+func printVersion() {
+	banner, _ := base64.StdEncoding.DecodeString(bannerBase64)
+	fmt.Printf(versionTpl, banner, Version, BuildTime, GitCommit, GoVersion)
+}
+
+func parseArg() {
+	if _, err := flags.NewParser(&opts, flags.Default).Parse(); err != nil {
+		if opts.Version {
+			printVersion()
+			os.Exit(0)
+		}
+		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			os.Exit(0)
+		} else {
+			os.Exit(1)
+		}
+	}
+}
+
 func main() {
-	_, err := flags.Parse(&opts)
-	if err != nil {
-		log.Fatal("parse arg %+v",
-			err)
+	parseArg()
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", send)
+
+	server := &http.Server{
+		Addr:    ":4000",
+		Handler: mux,
 	}
 
-	http.HandleFunc("/", send)
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt)
+	go func() {
+		<-quit
 
-	log.Info("server on http://%s", opts.Addr)
-	if err := http.ListenAndServe(opts.Addr, nil); err != nil {
-		log.Fatal("ListenAndServe %+v",
-			err)
+		if err := server.Shutdown(context.Background()); err != nil {
+			log.Fatal("Shutdown server:", err)
+		}
+	}()
+
+	log.Info("Starting HTTP server on http://%s", opts.Addr)
+	if err := server.ListenAndServe(); err != nil {
+		if err == http.ErrServerClosed {
+			log.Info("Server closed under request")
+		} else {
+			log.Fatal("Server closed unexpected")
+		}
 	}
 }
