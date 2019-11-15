@@ -13,7 +13,14 @@ LD_GO_VERSION	:= -X '$(VERSION_PATH).GoVersion=`go version`'
 LD_VERSION		:= -X '$(VERSION_PATH).Version=$(BUILD_VERSION)'
 LD_FLAGS		:= "$(LD_APP_NAMW) $(LD_GIT_COMMIT) $(LD_BUILD_TIME) $(LD_GO_VERSION) $(LD_VERSION) -w -s"
 
-.PHONY : build release clean install upx
+RELEASE_VERSION = $(version)
+REGISTRY_URL    = $(url)
+
+ifeq ("$(RELEASE_VERSION)","")
+	RELEASE_VERSION	:= $(shell echo `date "+%Y%m%d_%H%M%S"`)
+endif
+
+.PHONY : build release clean install upx docker-push docker
 
 build:
 ifneq ($(shell type gox >/dev/null 2>&1;echo $$?), 0)
@@ -23,6 +30,18 @@ endif
 	@# $(if $(findstring 0,$(shell type gox >/dev/null 2>&1;echo $$?)),,echo "Can't find gox command, will start installation...";GO111MODULE=off go get -v -u github.com/mitchellh/gox)
 	gox -ldflags $(LD_FLAGS) -osarch="darwin/amd64 linux/386 linux/amd64 windows/amd64" \
 		-output="$(DIST_DIR){{.Dir}}_{{.OS}}_{{.Arch}}"
+
+docker: build upx
+ifneq ("$(REGISTRY_URL)","")
+	@echo ========== current docker tag is: $(RELEASE_VERSION) ==========
+
+	docker build -t $(REGISTRY_URL)/ddgo_server:$(RELEASE_VERSION) -f Dockerfile .
+else
+	@echo "url arg should not be empty"
+endif
+
+docker-push: docker
+	docker push $(REGISTRY_URL)/ddgo_server:$(RELEASE_VERSION)
 
 clean:
 	rm -rf $(DIST_DIR)*
