@@ -94,7 +94,7 @@ func initLog() {
 }
 
 func parseArg() {
-	parser := flags.NewParser(&opts, flags.Default)
+	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
 	if _, err := parser.Parse(); err != nil {
 		if opts.Version {
 			printVersion()
@@ -102,13 +102,16 @@ func parseArg() {
 		}
 
 		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
+			_, _ = fmt.Fprintln(os.Stdout, err)
 			os.Exit(0)
-		} else {
-			parser.Name = AppName
-			parser.WriteHelp(os.Stderr)
-
-			os.Exit(1)
 		}
+
+		_, _ = fmt.Fprintln(os.Stderr, err)
+
+		parser.Name = AppName
+		parser.WriteHelp(os.Stderr)
+
+		os.Exit(1)
 	}
 }
 
