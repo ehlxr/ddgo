@@ -1,4 +1,4 @@
-**.log
-/ddgo
+logs
+ddgo
 go.sum
 dist

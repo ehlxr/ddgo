@@ -82,7 +82,7 @@ func initLog() {
 
 	err = log.NewFile(log.FileConfig{
 		Level:    log.LevelInfo,
-		Filename: "ddgo.log",
+		Filename: "./logs/ddgo.log",
 		FileRotationConfig: log.FileRotationConfig{
 			Rotate: true,
 			Daily:  true,
@@ -95,6 +95,10 @@ func initLog() {
 
 func parseArg() {
 	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
+	if AppName != "" {
+		parser.Name = AppName
+	}
+
 	if _, err := parser.Parse(); err != nil {
 		if opts.Version {
 			printVersion()
@@ -108,7 +112,6 @@ func parseArg() {
 
 		_, _ = fmt.Fprintln(os.Stderr, err)
 
-		parser.Name = AppName
 		parser.WriteHelp(os.Stderr)
 
 		os.Exit(1)
