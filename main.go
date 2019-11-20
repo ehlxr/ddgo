@@ -31,16 +31,20 @@ GoVersion: %s
 	bannerBase64 = "DQogX19fXyAgX19fXyAgICBfX18gIF9fX19fIA0KKCAgXyBcKCAgXyBcICAvIF9fKSggIF8gICkNCiApKF8pICkpKF8pICkoIChfLS4gKShfKSggDQooX19fXy8oX19fXy8gIFxfX18vKF9fX19fKQ0K"
 
 	opts struct {
-		Addr      string   `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
-		Token     string   `short:"t" long:"token" env:"TOKEN" description:"DingTalk robot access token" required:"true"`
-		Secret    string   `short:"s" long:"secret" env:"SECRET" description:"DingTalk robot secret"`
-		AtMobiles []string `short:"m" long:"at-mobiles" env:"AT_MOBILES" env-delim:"," description:"The mobile of the person will be @"`
-		IsAtAll   bool     `short:"e" long:"at-all" env:"AT_ALL" description:"Whether @ everyone"`
-		Version   bool     `short:"v" long:"version" description:"Show version info"`
+		Addr    string `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
+		Version bool   `short:"v" long:"version" description:"Show version info"`
+		Robot   robot  `group:"DingTalk Robot Options" namespace:"robot" env-namespace:"ROBOT" `
 	}
 
-	robot *dt.Robot
+	dingTalk *dt.Robot
 )
+
+type robot struct {
+	Token     string   `short:"t" long:"token" env:"TOKEN" description:"DingTalk robot access token" required:"true"`
+	Secret    string   `short:"s" long:"secret" env:"SECRET" description:"DingTalk robot secret"`
+	AtMobiles []string `short:"m" long:"at-mobiles" env:"AT_MOBILES" env-delim:"," description:"The mobile of the person will be at"`
+	IsAtAll   bool     `short:"e" long:"at-all" env:"AT_ALL" description:"Whether at everyone"`
+}
 
 func init() {
 	initLog()
@@ -49,7 +53,7 @@ func init() {
 func main() {
 	parseArg()
 
-	robot = dt.NewRobot(opts.Token, opts.Secret)
+	dingTalk = dt.NewRobot(opts.Robot.Token, opts.Robot.Secret)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", requestHandle)
@@ -100,6 +104,8 @@ func initLog() {
 
 func parseArg() {
 	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
+	parser.NamespaceDelimiter = "-"
+
 	if AppName != "" {
 		parser.Name = AppName
 	}
@@ -140,7 +146,7 @@ func requestHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = robot.SendTextMessage(content, opts.AtMobiles, opts.IsAtAll)
+	err = dingTalk.SendTextMessage(content, opts.Robot.AtMobiles, opts.Robot.IsAtAll)
 	if err != nil {
 		log.Error("%+v", err)
 		_, _ = fmt.Fprintln(w, err)
