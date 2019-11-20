@@ -1,14 +1,12 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
+	dt "github.com/JetBlink/dingtalk-notify-go-sdk"
 	"github.com/jessevdk/go-flags"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -33,10 +31,15 @@ GoVersion: %s
 	bannerBase64 = "DQogX19fXyAgX19fXyAgICBfX18gIF9fX19fIA0KKCAgXyBcKCAgXyBcICAvIF9fKSggIF8gICkNCiApKF8pICkpKF8pICkoIChfLS4gKShfKSggDQooX19fXy8oX19fXy8gIFxfX18vKF9fX19fKQ0K"
 
 	opts struct {
-		Addr       string `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
-		WebHookUrl string `short:"u" long:"webhook-url" env:"URL" description:"Webhook url of dingding" required:"true"`
-		Version    bool   `short:"v" long:"version" description:"Show version info"`
+		Addr      string   `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
+		Token     string   `short:"t" long:"token" env:"TOKEN" description:"Dingtalk robot access token" required:"true"`
+		Secret    string   `short:"s" long:"secret" env:"SECRET" description:"Dingtalk robot secret"`
+		AtMobiles []string `short:"m" long:"at-mobiles" env:"AT_MOBILES" env-delim:"," description:"The mobile of the person will be @"`
+		IsAtAll   bool     `short:"e" long:"at-all" env:"AT_ALL" description:"Whether @ everyone"`
+		Version   bool     `short:"v" long:"version" description:"Show version info"`
 	}
+
+	robot *dt.Robot
 )
 
 func init() {
@@ -45,6 +48,8 @@ func init() {
 
 func main() {
 	parseArg()
+
+	robot = dt.NewRobot(opts.Token, opts.Secret)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", requestHandle)
@@ -134,40 +139,16 @@ func requestHandle(w http.ResponseWriter, r *http.Request) {
 		_, _ = io.WriteString(w, "read content from request form nil")
 		return
 	}
-	info := dingToInfo(content)
 
-	_, _ = w.Write(info)
-}
-
-func dingToInfo(msg string) []byte {
-	content, data := make(map[string]string), make(map[string]interface{})
-
-	content["content"] = msg
-	data["msgtype"] = "text"
-	data["text"] = content
-	b, _ := json.Marshal(data)
-
-	log.Info("send to %s data <%s>",
-		opts.WebHookUrl,
-		b)
-
-	resp, err := http.Post(opts.WebHookUrl,
-		"application/json",
-		bytes.NewBuffer(b))
+	err = robot.SendTextMessage(content, opts.AtMobiles, opts.IsAtAll)
 	if err != nil {
-		log.Error("send request to %s %+v",
-			opts.Addr,
-			err)
-
+		log.Error("%+v", err)
+		_, _ = fmt.Fprintln(w, err)
+		return
 	}
-	defer resp.Body.Close()
 
-	body, _ := ioutil.ReadAll(resp.Body)
-	log.Info("send to %s data <%s> result is %s",
-		opts.WebHookUrl,
-		b,
-		body)
-	return body
+	log.Info("send message <%s> success", content)
+	_, _ = io.WriteString(w, "send message success")
 }
 
 // printVersion Print out version information
