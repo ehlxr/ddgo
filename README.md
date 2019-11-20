@@ -5,26 +5,30 @@ Usage:
   ddgo [OPTIONS]
 
 Application Options:
-  -a, --addr=        Addr to listen on for HTTP server (default: :80) [$ADDR]
-  -u, --webhook-url= Webhook url of dingtalk [$URL]
-  -v, --version      Show version info
+  -a, --addr=             Addr to listen on for HTTP server (default: :80) [$ADDR]
+  -v, --version           Show version info
+
+DingTalk Robot Options:
+  -t, --robot-token=      DingTalk robot access token [$ROBOT_TOKEN]
+  -s, --robot-secret=     DingTalk robot secret [$ROBOT_SECRET]
+  -m, --robot-at-mobiles= The mobile of the person will be at [$ROBOT_AT_MOBILES]
+  -e, --robot-at-all      Whether at everyone [$ROBOT_AT_ALL]
 
 Help Options:
-  -h, --help         Show this help message
+  -h, --help              Show this help message
 
 ```
 
 ```bash
- ____  ____    ___  _____ 
+ ____  ____    ___  _____
 (  _ \(  _ \  / __)(  _  )
- )(_) ))(_) )( (_-. )(_)( 
+ )(_) ))(_) )( (_-. )(_)(
 (____/(____/  \___/(_____)
 
 Name: ddgo
-Version: v0.0.1
-BuildTime: 2019-11-15 11:07:48
-GitCommit: 34859d9a5b80e55b5e3aa1a294bc8935b09a36d5
-GoVersion: go version go1.13.1 darwin/amd64
-
+Version: v0.0.3
+BuildTime: 2019-11-20 17:04:53
+GitCommit: 07fdff979c34534650c88a8c677f0446500886be
+GoVersion: go version go1.13.4 darwin/amd64
 
 ```
