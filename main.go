@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	log "unknwon.dev/clog/v2"
 )
 
@@ -146,7 +147,13 @@ func requestHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = dingTalk.SendTextMessage(content, opts.Robot.AtMobiles, opts.Robot.IsAtAll)
+	ats := opts.Robot.AtMobiles
+	at := r.Form.Get("at")
+	if at != "" {
+		ats = append(ats, strings.Split(at, ",")...)
+	}
+
+	err = dingTalk.SendTextMessage(content, ats, opts.Robot.IsAtAll)
 	if err != nil {
 		log.Error("%+v", err)
 		_, _ = fmt.Fprintln(w, err)
