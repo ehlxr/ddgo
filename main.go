@@ -32,8 +32,8 @@ GoVersion: %s
 
 	opts struct {
 		Addr      string   `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
-		Token     string   `short:"t" long:"token" env:"TOKEN" description:"Dingtalk robot access token" required:"true"`
-		Secret    string   `short:"s" long:"secret" env:"SECRET" description:"Dingtalk robot secret"`
+		Token     string   `short:"t" long:"token" env:"TOKEN" description:"DingTalk robot access token" required:"true"`
+		Secret    string   `short:"s" long:"secret" env:"SECRET" description:"DingTalk robot secret"`
 		AtMobiles []string `short:"m" long:"at-mobiles" env:"AT_MOBILES" env-delim:"," description:"The mobile of the person will be @"`
 		IsAtAll   bool     `short:"e" long:"at-all" env:"AT_ALL" description:"Whether @ everyone"`
 		Version   bool     `short:"v" long:"version" description:"Show version info"`
