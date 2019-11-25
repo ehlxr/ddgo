@@ -2,65 +2,42 @@ package main
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	dt "github.com/JetBlink/dingtalk-notify-go-sdk"
-	"github.com/jessevdk/go-flags"
+	"github.com/ehlxr/ddgo/pkg"
 	"io"
 	"net/http"
 	"os"
 	"os/signal"
 	"strings"
+	"time"
 	log "unknwon.dev/clog/v2"
 )
 
 var (
-	AppName   string
-	Version   string
-	BuildTime string
-	GitCommit string
-	GoVersion string
-
-	versionTpl = `%s
-Name: %s
-Version: %s
-BuildTime: %s
-GitCommit: %s
-GoVersion: %s
-
-`
-	bannerBase64 = "DQogX19fXyAgX19fXyAgICBfX18gIF9fX19fIA0KKCAgXyBcKCAgXyBcICAvIF9fKSggIF8gICkNCiApKF8pICkpKF8pICkoIChfLS4gKShfKSggDQooX19fXy8oX19fXy8gIFxfX18vKF9fX19fKQ0K"
-
-	opts struct {
-		Addr    string `short:"a" long:"addr" default:":80" env:"ADDR" description:"Addr to listen on for HTTP server"`
-		Version bool   `short:"v" long:"version" description:"Show version info"`
-		Robot   robot  `group:"DingTalk Robot Options" namespace:"robot" env-namespace:"ROBOT" `
-	}
-
 	dingTalk *dt.Robot
+	limiter  *pkg.LimiterServer
 )
-
-type robot struct {
-	Token     string   `short:"t" long:"token" env:"TOKEN" description:"DingTalk robot access token" required:"true"`
-	Secret    string   `short:"s" long:"secret" env:"SECRET" description:"DingTalk robot secret"`
-	AtMobiles []string `short:"m" long:"at-mobiles" env:"AT_MOBILES" env-delim:"," description:"The mobile of the person will be at"`
-	IsAtAll   bool     `short:"e" long:"at-all" env:"AT_ALL" description:"Whether at everyone"`
-}
 
 func init() {
 	initLog()
 }
 
 func main() {
-	parseArg()
+	pkg.ParseArg()
 
-	dingTalk = dt.NewRobot(opts.Robot.Token, opts.Robot.Secret)
+	dingTalk = dt.NewRobot(pkg.Opts.Robot.Token, pkg.Opts.Robot.Secret)
+	limiter = pkg.NewLimiterServer(1*time.Minute, 20)
 
+	start()
+}
+
+func start() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", requestHandle)
 
 	server := &http.Server{
-		Addr:    opts.Addr,
+		Addr:    pkg.Opts.Addr,
 		Handler: mux,
 	}
 
@@ -74,7 +51,7 @@ func main() {
 		}
 	}()
 
-	log.Info("Starting HTTP server on http://%s", opts.Addr)
+	log.Info("Starting HTTP server on http://%s", pkg.Opts.Addr)
 	if err := server.ListenAndServe(); err != nil {
 		if err == http.ErrServerClosed {
 			log.Info("Server closed under request")
@@ -103,33 +80,6 @@ func initLog() {
 	}
 }
 
-func parseArg() {
-	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
-	parser.NamespaceDelimiter = "-"
-
-	if AppName != "" {
-		parser.Name = AppName
-	}
-
-	if _, err := parser.Parse(); err != nil {
-		if opts.Version {
-			printVersion()
-			os.Exit(0)
-		}
-
-		if flagsErr, ok := err.(*flags.Error); ok && flagsErr.Type == flags.ErrHelp {
-			_, _ = fmt.Fprintln(os.Stdout, err)
-			os.Exit(0)
-		}
-
-		_, _ = fmt.Fprintln(os.Stderr, err)
-
-		parser.WriteHelp(os.Stderr)
-
-		os.Exit(1)
-	}
-}
-
 func requestHandle(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
@@ -147,25 +97,33 @@ func requestHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ats := opts.Robot.AtMobiles
+	ats := pkg.Opts.Robot.AtMobiles
 	at := r.Form.Get("at")
 	if at != "" {
 		ats = append(ats, strings.Split(at, ",")...)
 	}
 
-	err = dingTalk.SendTextMessage(content, ats, opts.Robot.IsAtAll)
-	if err != nil {
-		log.Error("%+v", err)
-		_, _ = fmt.Fprintln(w, err)
-		return
+	app := r.Form.Get("app")
+	if app != "" {
+		content = fmt.Sprintf("%s\n%s", app, content)
 	}
 
-	log.Info("send message <%s> success", content)
-	_, _ = io.WriteString(w, "send message success")
-}
+	if limiter.IsAvailable() {
+		err = dingTalk.SendTextMessage(content, ats, pkg.Opts.Robot.IsAtAll)
+		if err != nil {
+			log.Error("%+v", err)
+			_, _ = fmt.Fprintln(w, err)
+			return
+		}
 
-// printVersion Print out version information
-func printVersion() {
-	banner, _ := base64.StdEncoding.DecodeString(bannerBase64)
-	fmt.Printf(versionTpl, banner, AppName, Version, BuildTime, GitCommit, GoVersion)
+		log.Info("send message <%s> success", content)
+		_, _ = io.WriteString(w, "success")
+		return
+	} else {
+		log.Error("dingTalk 1 m allow send 20 msg. msg %v discarded.",
+			content)
+
+		_, _ = io.WriteString(w, "dingTalk 1 m allow send 20 msg. msg discarded.")
+		return
+	}
 }
