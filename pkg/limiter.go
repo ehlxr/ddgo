@@ -33,7 +33,6 @@ func (limiter *LimiterServer) IsAvailable() bool {
 	if limiter.reqCount < limiter.maxCount {
 		limiter.reqCount += 1
 		limiter.time = now
-
 		return true
 	}
 
