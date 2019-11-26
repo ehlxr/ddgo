@@ -9,31 +9,31 @@ type LimiterServer struct {
 	interval time.Duration
 	maxCount int
 	sync.Mutex
-	reqCount  int
-	startTime time.Time
+	reqCount int
+	time     time.Time
 }
 
-func NewLimiterServer(i time.Duration, c int) *LimiterServer {
+func NewLimiterServer(interval time.Duration, maxCount int) *LimiterServer {
 	return &LimiterServer{
-		interval: i,
-		maxCount: c,
+		interval: interval,
+		maxCount: maxCount,
 	}
 }
 
 func (limiter *LimiterServer) IsAvailable() bool {
 	limiter.Lock()
 	defer limiter.Unlock()
+	now := time.Now()
 
-	if limiter.startTime.IsZero() ||
-		limiter.startTime.Add(limiter.interval).Before(time.Now()) {
-		limiter.reqCount = 1
-		limiter.startTime = time.Now()
-
-		return true
+	if limiter.time.IsZero() ||
+		limiter.time.Add(limiter.interval).Before(now) {
+		limiter.reqCount = 0
+		limiter.time = now
 	}
 
 	if limiter.reqCount < limiter.maxCount {
 		limiter.reqCount += 1
+		limiter.time = now
 
 		return true
 	}
