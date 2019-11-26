@@ -28,7 +28,6 @@ func (limiter *LimiterServer) IsAvailable() bool {
 	if limiter.time.IsZero() ||
 		limiter.time.Add(limiter.interval).Before(now) {
 		limiter.reqCount = 0
-		limiter.time = now
 	}
 
 	if limiter.reqCount < limiter.maxCount {
