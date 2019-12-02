@@ -1,5 +1,10 @@
 # DDGO
 
+[![license](https://badgen.net/badge/license/MIT/blue)](./LICENSE)
+[![](https://badgen.net/github/commits/ehlxr/ddgo)](https://github.com/ehlxr/ddgo/commits/)
+[![](https://badgen.net/github/last-commit/ehlxr/ddgo)]((https://github.com/ehlxr/ddgo/commits/))
+[![](https://badgen.net/github/releases/ehlxr/ddgo)](https://github.com/ehlxr/ddgo/releases)
+
 ```bash
 Usage:
   ddgo [OPTIONS]
