@@ -3,7 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
-	dt "github.com/JetBlink/dingtalk-notify-go-sdk"
+	dtn "github.com/JetBlink/dingtalk-notify-go-sdk"
 	"github.com/ehlxr/ddgo/pkg"
 	"io"
 	"net/http"
@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	dingTalk *dt.Robot
+	dingTalk *dtn.Robot
 	limiter  *pkg.LimiterServer
 )
 
@@ -26,7 +26,7 @@ func init() {
 func main() {
 	pkg.ParseArg()
 
-	dingTalk = dt.NewRobot(pkg.Opts.Robot.Token, pkg.Opts.Robot.Secret)
+	dingTalk = dtn.NewRobot(pkg.Opts.Robot.Token, pkg.Opts.Robot.Secret)
 	limiter = pkg.NewLimiterServer(1*time.Minute, 20)
 
 	start()
@@ -108,8 +108,15 @@ func requestHandle(w http.ResponseWriter, r *http.Request) {
 		content = fmt.Sprintf("%s\n%s", app, content)
 	}
 
+	dtRobot := dingTalk
+	dt := r.Form.Get("dt")
+	ds := r.Form.Get("ds")
+	if ds != "" && dt != "" {
+		dtRobot = dtn.NewRobot(dt, ds)
+	}
+
 	if limiter.IsAvailable() {
-		err = dingTalk.SendTextMessage(content, ats, pkg.Opts.Robot.IsAtAll)
+		err = dtRobot.SendTextMessage(content, ats, pkg.Opts.Robot.IsAtAll)
 		if err != nil {
 			log.Error("%+v", err)
 			_, _ = fmt.Fprintln(w, err)
