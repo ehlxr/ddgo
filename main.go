@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	dtn "github.com/JetBlink/dingtalk-notify-go-sdk"
 	"github.com/ehlxr/ddgo/pkg"
@@ -34,7 +36,14 @@ func main() {
 
 func start() {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/", requestHandle)
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		switch r.Header.Get("Content-Type") {
+		case "application/json":
+			handlePostJson(w, r)
+		case "application/x-www-form-urlencoded":
+			handlePostForm(w, r)
+		}
+	})
 
 	server := &http.Server{
 		Addr:    pkg.Opts.Addr,
@@ -80,7 +89,7 @@ func initLog() {
 	}
 }
 
-func requestHandle(w http.ResponseWriter, r *http.Request) {
+func handlePostForm(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
 	if err != nil {
 		log.Error("parse request form %+v",
@@ -90,47 +99,85 @@ func requestHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content := r.Form.Get("content")
-	if content == "" {
-		log.Error("read content from request form nil")
-		_, _ = io.WriteString(w, "read content from request form nil")
+	if err = sendMessage(&Message{
+		r.Form.Get("content"),
+		r.Form.Get("at"),
+		r.Form.Get("app"),
+		r.Form.Get("dt"),
+		r.Form.Get("ds"),
+	}); err != nil {
+		http.Error(w, err.Error(), 400)
+		log.Error(err.Error())
+
 		return
+	}
+
+	_, _ = io.WriteString(w, "success")
+	return
+}
+
+func handlePostJson(w http.ResponseWriter, r *http.Request) {
+	if r.Body == nil {
+		http.Error(w, "Please sendMessage a request body", 400)
+		log.Error("Please sendMessage a request body")
+		return
+	}
+
+	m := &Message{}
+	err := json.NewDecoder(r.Body).Decode(m)
+	if err != nil {
+		http.Error(w, err.Error(), 400)
+		log.Error(err.Error())
+		return
+	}
+
+	if err = sendMessage(m); err != nil {
+		http.Error(w, err.Error(), 400)
+		log.Error(err.Error())
+		return
+	}
+
+	_, _ = io.WriteString(w, "success")
+	return
+}
+
+type Message struct {
+	Content string `json:"content" desc:"消息内容"`
+	At      string `json:"at" desc:"被@人的手机号"`
+	App     string `json:"app" desc:"发送消息应用名称（添加到消息之前）"`
+	Dt      string `json:"dt" desc:"钉钉机器人 token"`
+	Ds      string `json:"ds" desc:"钉钉机器人签名 secret"`
+}
+
+func sendMessage(m *Message) error {
+	if m.Content == "" {
+		return errors.New("content must not be null")
 	}
 
 	ats := pkg.Opts.Robot.AtMobiles
-	at := r.Form.Get("at")
-	if at != "" {
-		ats = append(ats, strings.Split(at, ",")...)
+	if m.At != "" {
+		ats = append(ats, strings.Split(m.At, ",")...)
 	}
 
-	app := r.Form.Get("app")
-	if app != "" {
-		content = fmt.Sprintf("%s\n%s", app, content)
+	if m.App != "" {
+		m.Content = fmt.Sprintf("%s\n%s", m.App, m.Content)
 	}
 
 	dtRobot := dingTalk
-	dt := r.Form.Get("dt")
-	ds := r.Form.Get("ds")
-	if ds != "" && dt != "" {
-		dtRobot = dtn.NewRobot(dt, ds)
+
+	if m.Ds != "" && m.Dt != "" {
+		dtRobot = dtn.NewRobot(m.Dt, m.Ds)
 	}
 
 	if limiter.IsAvailable() {
-		err = dtRobot.SendTextMessage(content, ats, pkg.Opts.Robot.IsAtAll)
+		err := dtRobot.SendTextMessage(m.Content, ats, pkg.Opts.Robot.IsAtAll)
 		if err != nil {
-			log.Error("%+v", err)
-			_, _ = fmt.Fprintln(w, err)
-			return
+			return err
 		}
 
-		log.Info("send message <%s> success", content)
-		_, _ = io.WriteString(w, "success")
-		return
+		log.Info("sendMessage message <%s> success", m.Content)
 	} else {
-		log.Error("dingTalk 1 m allow send 20 msg. msg %v discarded.",
-			content)
-
-		_, _ = io.WriteString(w, "dingTalk 1 m allow send 20 msg. msg discarded.")
-		return
+		return errors.New("dingTalk 1 m allow sendMessage 20 msg. msg discarded")
 	}
+	return nil
 }
