@@ -29,6 +29,8 @@ func main() {
 	pkg.ParseArg()
 
 	dingTalk = dtn.NewRobot(pkg.Opts.Robot.Token, pkg.Opts.Robot.Secret)
+
+	// 每个机器人每分钟最多发送 20 条。如果超过 20 条，会限流 10 分钟 https://ding-doc.dingtalk.com/doc#/serverapi2/krgddi/3446b47e
 	limiter = pkg.NewLimiterServer(1*time.Minute, 20)
 
 	start()
